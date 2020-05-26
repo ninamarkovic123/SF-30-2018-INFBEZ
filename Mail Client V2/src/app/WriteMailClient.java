@@ -3,6 +3,9 @@ package app;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.security.KeyStore;
+import java.security.PublicKey;
+import java.security.cert.Certificate;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -14,6 +17,8 @@ import org.apache.xml.security.utils.JavaUtils;
 
 import com.google.api.services.gmail.Gmail;
 
+import model.keystore.KeyStoreReader;
+import model.mailclient.MailBody;
 import util.Base64;
 import util.GzipUtil;
 import util.IVHelper;
@@ -71,14 +76,30 @@ public class WriteMailClient extends MailClient {
 			String ciphersubjectStr = Base64.encodeToString(ciphersubject);
 			System.out.println("Kriptovan subject: " + ciphersubjectStr);
 			
+			KeyStoreReader ksr = new KeyStoreReader();
+			KeyStore ks = ksr.readKeyStore("./data/userb.jks", "nina".toCharArray());
+			
+			Certificate cer = ksr.getCertificateFromKeyStore(ks, "userb");
+			
+			PublicKey pk = cer.getPublicKey();
+			
+			Cipher cipherenc = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+			cipherenc.init(Cipher.ENCRYPT_MODE, pk);
+			
+			byte[] encriptKey = cipherenc.doFinal(secretKey.getEncoded());
+			
+			MailBody mb = new MailBody(ciphertext, ivParameterSpec1.getIV(), ivParameterSpec2.getIV(), encriptKey);
+			System.out.println("nn");
+			System.out.println(secretKey);
 			
 			//snimaju se bajtovi kljuca i IV.
 			JavaUtils.writeBytesToFilename(KEY_FILE, secretKey.getEncoded());
 			JavaUtils.writeBytesToFilename(IV1_FILE, ivParameterSpec1.getIV());
 			JavaUtils.writeBytesToFilename(IV2_FILE, ivParameterSpec2.getIV());
 			
-        	MimeMessage mimeMessage = MailHelper.createMimeMessage(reciever, ciphersubjectStr, ciphertextStr);
+        	MimeMessage mimeMessage = MailHelper.createMimeMessage(reciever, ciphersubjectStr , mb.toCSV());
         	MailWritter.sendMessage(service, "me", mimeMessage);
+        	
         	
         }catch (Exception e) {
         	e.printStackTrace();

@@ -1,11 +1,16 @@
 package app;
 
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +30,8 @@ import org.apache.xml.security.utils.JavaUtils;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Message;
 
+import model.keystore.KeyStoreReader;
+import model.mailclient.MailBody;
 import support.MailHelper;
 import support.MailReader;
 import util.Base64;
@@ -77,31 +84,46 @@ public class ReadMailClient extends MailClient {
 	    
 		MimeMessage chosenMessage = mimeMessages.get(answer);
 	    
+		
+		MailBody mailBody = new MailBody(MailHelper.getText(chosenMessage));
+		
+		KeyStoreReader keyStoreReader = new KeyStoreReader();
+		KeyStore ks = keyStoreReader.readKeyStore("./data/userb.jks", "nina".toCharArray());
+		PrivateKey pk = keyStoreReader.getPrivateKeyFromKeyStore(ks, "userb", "nina".toCharArray());
+		byte[] tajniKljuc = mailBody.getEncKeyBytes();
+		
         //TODO: Decrypt a message and decompress it. The private key is stored in a file.
 		Cipher aesCipherDec = Cipher.getInstance("AES/CBC/PKCS5Padding");
-		SecretKey secretKey = new SecretKeySpec(JavaUtils.getBytesFromFile(KEY_FILE), "AES");
+		SecretKey secretKey = new SecretKeySpec(tajniKljuc, "RSA");
 		
+		Cipher rsaCipherDec = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 		
-		byte[] iv1 = JavaUtils.getBytesFromFile(IV1_FILE);
-		IvParameterSpec ivParameterSpec1 = new IvParameterSpec(iv1);
-		aesCipherDec.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec1);
+		rsaCipherDec.init(Cipher.DECRYPT_MODE, pk);
 		
-		String str = MailHelper.getText(chosenMessage);
-		byte[] bodyEnc = Base64.decode(str);
-		
-		String receivedBodyTxt = new String(aesCipherDec.doFinal(bodyEnc));
-		String decompressedBodyText = GzipUtil.decompress(Base64.decode(receivedBodyTxt));
-		System.out.println("Body text: " + decompressedBodyText);
-		
-		
-		byte[] iv2 = JavaUtils.getBytesFromFile(IV2_FILE);
-		IvParameterSpec ivParameterSpec2 = new IvParameterSpec(iv2);
-		//inicijalizacija za dekriptovanje
-		aesCipherDec.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec2);
-		
-		//dekompresovanje i dekriptovanje subject-a
-		String decryptedSubjectTxt = new String(aesCipherDec.doFinal(Base64.decode(chosenMessage.getSubject())));
-		String decompressedSubjectTxt = GzipUtil.decompress(Base64.decode(decryptedSubjectTxt));
-		System.out.println("Subject text: " + new String(decompressedSubjectTxt));
+		//dekriptovanje
+				byte[] receivedTxt = rsaCipherDec.doFinal(secretKey.getEncoded());
+				
+				SecretKey sky = new SecretKeySpec(receivedTxt, "AES");
+				System.out.println(sky);
+				
+				byte[] iv1 = JavaUtils.getBytesFromFile(IV1_FILE);
+				IvParameterSpec ivParameterSpec1 = new IvParameterSpec(iv1);
+				aesCipherDec.init(Cipher.DECRYPT_MODE, sky, ivParameterSpec1);
+				
+				byte[] dm = aesCipherDec.doFinal(mailBody.getEncMessageBytes());
+				String newstr = new String(dm);
+				
+				String dbt = GzipUtil.decompress(Base64.decode(newstr));
+				System.out.println("Mail: " + dbt);
+				
+				byte[] iv2 = JavaUtils.getBytesFromFile(IV2_FILE);
+				IvParameterSpec ivParameterSpec2 = new IvParameterSpec(iv2);
+				//inicijalizacija za dekriptovanje
+				aesCipherDec.init(Cipher.DECRYPT_MODE, sky, ivParameterSpec2);
+				
+				//dekompresovanje i dekriptovanje subject-a
+				String decryptedSubjectTxt = new String(aesCipherDec.doFinal(Base64.decode(chosenMessage.getSubject())));
+				String decompressedSubjectTxt = GzipUtil.decompress(Base64.decode(decryptedSubjectTxt));
+				System.out.println("Subject text: " + new String(decompressedSubjectTxt));
+			}
 	}
-}
