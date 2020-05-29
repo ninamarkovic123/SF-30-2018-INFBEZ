@@ -30,6 +30,11 @@ public class WriteMailClient extends MailClient {
 	private static final String KEY_FILE = "./data/session.key";
 	private static final String IV1_FILE = "./data/iv1.bin";
 	private static final String IV2_FILE = "./data/iv2.bin";
+	private static final String KEYSTORE ="./data/userb.jks";
+	private static final String PASSWORD = "userb";
+	private static final String ALIAS = "userb";
+	private static KeyStoreReader keyStoreReader = new KeyStoreReader();
+
 	
 	public static void main(String[] args) {
 		
@@ -76,12 +81,13 @@ public class WriteMailClient extends MailClient {
 			String ciphersubjectStr = Base64.encodeToString(ciphersubject);
 			System.out.println("Kriptovan subject: " + ciphersubjectStr);
 			
-			KeyStoreReader ksr = new KeyStoreReader();
-			KeyStore ks = ksr.readKeyStore("./data/userb.jks", "nina".toCharArray());
-			
-			Certificate cer = ksr.getCertificateFromKeyStore(ks, "userb");
-			
+			KeyStore ks = keyStoreReader.readKeyStore(KEYSTORE, PASSWORD.toCharArray());
+			Certificate cer = keyStoreReader.getCertificateFromKeyStore(ks, ALIAS);
 			PublicKey pk = cer.getPublicKey();
+			System.out.println(cer);
+			System.out.println(pk);
+			
+			
 			
 			Cipher cipherenc = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 			cipherenc.init(Cipher.ENCRYPT_MODE, pk);
@@ -99,7 +105,7 @@ public class WriteMailClient extends MailClient {
 			
         	MimeMessage mimeMessage = MailHelper.createMimeMessage(reciever, ciphersubjectStr , mb.toCSV());
         	MailWritter.sendMessage(service, "me", mimeMessage);
-        	
+        
         	
         }catch (Exception e) {
         	e.printStackTrace();
