@@ -176,6 +176,19 @@ public class User implements UserDetails {
     public boolean isCredentialsNonExpired() {
         return true;
     }
+    @JsonIgnore
+    public String getAuthoritiesAsString() {
+    	StringBuilder sb = new StringBuilder();
+    	
+    	for (Authority authority : this.authority) {
+    		sb.append(authority.getName() + " ");
+    	}
+    	
+    	return sb.toString();
+    }
+
 }
+
+
 
 

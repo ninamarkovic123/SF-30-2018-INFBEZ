@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import ib.project.entity.Authority;
 import ib.project.entity.User;
+import ib.project.entity.UserRequest;
 import ib.repository.UserRepository;
 import ib.service.UserService;
 import ib.service.AuthorityService;
@@ -42,22 +43,22 @@ public class UserServiceImpl implements UserService {
 		return result;
 	}
 
-	/*@Override
+	@Override
 	public User save(UserRequest userRequest) {
 		User u = new User();
 		u.setUsername(userRequest.getUsername());
 		// pre nego sto postavimo lozinku u atribut hesiramo je
 		u.setPassword(passwordEncoder.encode(userRequest.getPassword()));
-		u.setFirstName(userRequest.getFirstname());
-		u.setLastName(userRequest.getLastname());
+		u.setUsername(userRequest.getFirstname());
+	
 		u.setEnabled(true);
 		
-		List<Authority> auth = authService.findByname("ROLE_USER");
+		/*List<Authority> auth = authService.findByname("ROLE_USER");
 		// u primeru se registruju samo obicni korisnici i u skladu sa tim im se i dodeljuje samo rola USER
-		u.setAuthorities(auth);
-		
+		u.setAuthority(auth);
+		*/
 		u = this.userRepository.save(u);
 		return u;
-	}*/
+	}
 
 }
