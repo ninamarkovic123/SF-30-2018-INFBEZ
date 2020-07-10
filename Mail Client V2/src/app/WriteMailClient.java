@@ -3,8 +3,12 @@ package app;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.security.KeyPair;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Signature;
+import java.security.SignedObject;
 import java.security.cert.Certificate;
 
 import javax.crypto.Cipher;
@@ -19,6 +23,8 @@ import com.google.api.services.gmail.Gmail;
 
 import model.keystore.KeyStoreReader;
 import model.mailclient.MailBody;
+import signature.SignatureManager;
+import signature.SignatureManagerSignedObject;
 import util.Base64;
 import util.GzipUtil;
 import util.IVHelper;
@@ -35,7 +41,10 @@ public class WriteMailClient extends MailClient {
 	private static final String ALIAS = "userb";
 	private static KeyStoreReader keyStoreReader = new KeyStoreReader();
 
-	
+
+	private static SignatureManager signatureManager = new SignatureManager();
+	private static SignatureManagerSignedObject signatureManagerSignedObject = new SignatureManagerSignedObject();
+
 	public static void main(String[] args) {
 		
         try {
@@ -92,9 +101,30 @@ public class WriteMailClient extends MailClient {
 			Cipher cipherenc = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 			cipherenc.init(Cipher.ENCRYPT_MODE, pk);
 			
-			byte[] encriptKey = cipherenc.doFinal(secretKey.getEncoded());
 			
-			MailBody mb = new MailBody(ciphertext, ivParameterSpec1.getIV(), ivParameterSpec2.getIV(), encriptKey);
+			
+			byte[] encriptKey = cipherenc.doFinal(secretKey.getEncoded());
+			//pocetak digitalnog potpisivanja
+			System.out.println( "Digitalno potpisivanje");
+			
+			KeyPair keyPair = signatureManager.generateKeys();
+			
+			// preuzimamo javni kljuc
+			PublicKey publicKey = keyPair.getPublic();
+			
+			// preuzimamo privatni kljuc
+			PrivateKey privateKey = keyPair.getPrivate();
+			
+			Signature signing = Signature.getInstance("SHA256withRSA");
+			signing.initSign(privateKey);
+			signing.update(ciphertext);
+			byte[] signature = signing.sign();
+			
+			
+			System.out.println("Digital signature: " + new String (signature, "UTF-8"));
+			
+
+			MailBody mb = new MailBody(ciphertext, ivParameterSpec1.getIV(), ivParameterSpec2.getIV(), encriptKey,signature);
 			System.out.println("nn");
 			System.out.println(secretKey);
 			
@@ -105,10 +135,16 @@ public class WriteMailClient extends MailClient {
 			
         	MimeMessage mimeMessage = MailHelper.createMimeMessage(reciever, ciphersubjectStr , mb.toCSV());
         	MailWritter.sendMessage(service, "me", mimeMessage);
-        
+        	
+
+        	
         	
         }catch (Exception e) {
         	e.printStackTrace();
 		}
+		
+		
+	
 	}
+
 }
