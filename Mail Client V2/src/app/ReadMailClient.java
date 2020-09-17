@@ -81,7 +81,8 @@ public class ReadMailClient extends MailClient {
 			} catch (MessagingException e) {
 				e.printStackTrace();
 			}	
-        }
+        } 
+      
         
         System.out.println("Select a message to decrypt:");
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
@@ -99,6 +100,8 @@ public class ReadMailClient extends MailClient {
 			IvParameterSpec vector2 = new IvParameterSpec(iv2);
 			byte [] body = mb.getEncMessageBytes();
 			byte [] encSessionKey = mb.getEncKeyBytes();	
+			String encMessage = mb.getEncMessage();
+
 		
 			KeyStore ks = keyStoreReader.readKeyStore(KEYSTORE, PASSWORD.toCharArray());
 			PrivateKey privateKey = keyStoreReader.getPrivateKeyFromKeyStore(ks, ALIAS, PASSWORD.toCharArray());
@@ -106,17 +109,28 @@ public class ReadMailClient extends MailClient {
 			Cipher rsaCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 			rsaCipher.init(Cipher.DECRYPT_MODE, privateKey);
 			byte[] secretKey = rsaCipher.doFinal(encSessionKey);
-			SecretKey ss = new SecretKeySpec(secretKey, "AES");
+			SecretKey ss = new SecretKeySpec(secretKey, "DESede");
+			//SecretKey ss = new SecretKeySpec(secretKey, "AES");
 			
-			Cipher bodyCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			
+			Cipher bodyCipher = Cipher.getInstance("DESede/CBC/PKCS5Padding");
+			//Cipher bodyCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			bodyCipher.init(Cipher.DECRYPT_MODE, ss, vector1);
 			byte[] text = bodyCipher.doFinal(body);
 			
-			bodyCipher.init(Cipher.DECRYPT_MODE, ss, vector2);
-			byte [] decoded = Base64.decode(chosenMessage.getSubject());
-			String decryptedSubject = new String(bodyCipher.doFinal(decoded));
+			String receivedBodyTxt = new String(bodyCipher.doFinal(Base64.decode(encMessage)));
+			String decompressedBodyText = GzipUtil.decompress(Base64.decode(receivedBodyTxt));
 			
-			String decompressedSubjectTxt = GzipUtil.decompress(Base64.decode(decryptedSubject));
+			bodyCipher.init(Cipher.DECRYPT_MODE, ss, vector2);
+
+			//bodyCipher.init(Cipher.DECRYPT_MODE, ss, vector2);
+			//byte [] decoded = Base64.decode(chosenMessage.getSubject());
+			//String decryptedSubject = new String(bodyCipher.doFinal(decoded));
+			
+			String decryptedSubjectTxt = new String(bodyCipher.doFinal(Base64.decode(chosenMessage.getSubject())));
+			String decompressedSubjectTxt = GzipUtil.decompress(Base64.decode(decryptedSubjectTxt));
+			
+			System.out.println("Body: " + decompressedBodyText);
 			System.out.println("Subject: " + new String(decompressedSubjectTxt));
 			System.out.println("Bez dekompresije: " + new String(text));
 			}
